@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  position  String?
+  department String?
+  role      UserRole @default(TEACHER)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  reports       Report[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  academicYear String  // "2025/2026"
+  status      ReportStatus @default(DRAFT)
+  
+  // Parsed data from document
+  rawData     Json?
+  parsedData  Json?
+  
+  // Original file info
+  originalFileName String?
+  filePath    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  disciplines Discipline[]
+}
+
+model Discipline {
+  id        String @id @default(uuid())
+  reportId  String
+  report    Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  
+  name      String
+  faculty   String
+  specialty String
+  course    Int
+  semester  Int
+  studyForm StudyForm @default(FULL_TIME) // Форма навчання
+  
+  studentsCount Int @default(0)
+  
+  // Hours breakdown
+  lectures      Int @default(0)
+  practicals    Int @default(0)
+  labs          Int @default(0)
+  consultations Int @default(0)
+  exams         Int @default(0)
+  credits       Int @default(0)
+  
+  // Additional work
+  controlWorks  Int @default(0)
+  courseWorks   Int @default(0)
+  thesisWorks   Int @default(0)
+  
+  totalHours    Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum StudyForm {
+  FULL_TIME  // Денна
+  PART_TIME  // Заочна
+}
+
+enum UserRole {
+  TEACHER
+  ADMIN
+}
+
+enum ReportStatus {
+  DRAFT
+  PARSED
+  VALIDATED
+  COMPLETED
+}
