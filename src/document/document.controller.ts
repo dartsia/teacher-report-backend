@@ -14,6 +14,7 @@ import { ApiTags, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { DocumentService } from './document.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { Express } from 'express';
 
 @ApiTags('documents')
 @Controller('documents')

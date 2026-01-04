@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Express } from 'express';
 import * as fs from 'fs/promises';
 import * as mammoth from 'mammoth';
 const PDFParser = require('pdf2json');
