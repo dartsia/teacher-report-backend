@@ -13,7 +13,7 @@ export class UpdateDisciplineDto {
   @IsOptional()
   faculty?: string;
 
-  @ApiProperty({ example: 'Ел. 121-2', required: false })
+  @ApiProperty({ example: '121', required: false })
   @IsString()
   @IsOptional()
   specialty?: string;
@@ -32,59 +32,96 @@ export class UpdateDisciplineDto {
   @IsOptional()
   semester?: number;
 
-  @ApiProperty({ example: 'FULL_TIME', enum: ['FULL_TIME', 'PART_TIME'], required: false })
-  @IsString()
-  @IsOptional()
-  studyForm?: 'FULL_TIME' | 'PART_TIME';
-
   @ApiProperty({ example: 65, required: false })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @IsOptional()
-  studentsCount?: number;
+  students?: number;
 
   @ApiProperty({ example: 32, required: false })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @IsOptional()
-  lectures?: number;
+  lecturesFullTime?: number;
+
+  @ApiProperty({ example: 4, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  lecturesPartTime?: number;
+
+  @ApiProperty({ example: 16, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  practicalsFullTime?: number;
+
+  @ApiProperty({ example: 2, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  practicalsPartTime?: number;
+
+  @ApiProperty({ example: 16, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  labsFullTime?: number;
 
   @ApiProperty({ example: 0, required: false })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @IsOptional()
-  practicals?: number;
+  labsPartTime?: number;
 
-  @ApiProperty({ example: 6, required: false })
+  @ApiProperty({ example: 4, required: false })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @IsOptional()
-  labs?: number;
+  consultationsFullTime?: number;
 
-  @ApiProperty({ example: 15, required: false })
+  @ApiProperty({ example: 2, required: false })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @IsOptional()
-  consultations?: number;
+  consultationsPartTime?: number;
+
+  @ApiProperty({ example: 2, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  examsFullTime?: number;
+
+  @ApiProperty({ example: 2, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  examsPartTime?: number;
+
+  @ApiProperty({ example: 2, required: false })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  creditsFullTime?: number;
 
   @ApiProperty({ example: 0, required: false })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @IsOptional()
-  exams?: number;
-
-  @ApiProperty({ example: 0, required: false })
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @IsOptional()
-  credits?: number;
+  creditsPartTime?: number;
 
   @ApiProperty({ example: 0, required: false })
   @Type(() => Number)

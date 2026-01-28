@@ -9,8 +9,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
-// import { diskStorage } from 'multer';
-// import { extname } from 'path';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { DocumentService } from './document.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -42,15 +42,16 @@ export class DocumentController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      // storage: diskStorage({
-      //   destination: './uploads',
-      //   filename: (req, file, cb) => {
-      //     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      //     cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-      //   },
-      // }),
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          cb(null, `${uniqueSuffix}${ext}`);
+        },
+      }),
       fileFilter: (req, file, cb) => {
-        if (!file.originalname.match(/\.(pdf|doc|docx)$/)) {
+        if (!file.originalname.match(/\.(pdf|doc|docx)$/i)) {
           return cb(new BadRequestException('Тільки PDF або Word файли!'), false);
         }
         cb(null, true);
@@ -73,12 +74,11 @@ export class DocumentController {
       throw new BadRequestException('Навчальний рік обов\'язковий');
     }
 
-    return this.documentService.processDocument(file, userId, academicYear);
+    const originalFileName = Buffer.from(file.originalname, 'utf8').toString('utf8');
+    return this.documentService.processDocument(file, userId, academicYear, originalFileName);
   }
 
-  
   @Post('parse')
-  //@ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',

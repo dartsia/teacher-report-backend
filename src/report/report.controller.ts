@@ -94,33 +94,42 @@ export class ReportController {
     @CurrentUser('id') userId: string,
     @Res() res: Response,
   ) {
+    const report = await this.reportService.getReport(id, userId);
     const pdfBuffer = await this.reportService.exportToPdf(id, userId);
+
+    const fileName = `${report.user.name}_${report.academicYear}_report.pdf`;
+    const encodedFileName = Buffer.from(fileName).toString('latin1');
     
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=report-${id}.pdf`,
+      'Content-Disposition': `attachment; filename="${encodedFileName}"`,
       'Content-Length': pdfBuffer.length,
     });
     
     res.end(pdfBuffer);
   }
 
-  @Get(':id/export/excel')
-  async exportToExcel(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-    @Res() res: Response,
-  ) {
-    const excelBuffer = await this.reportService.exportToExcel(id, userId);
+  // @Get(':id/export/excel')
+  // async exportToExcel(
+  //   @Param('id') id: string,
+  //   @CurrentUser('id') userId: string,
+  //   @Res() res: Response,
+  // ) {
+  //   const report = await this.reportService.getReport(id, userId);
+  //   const excelBuffer = await this.reportService.exportToExcel(id, userId);
     
-    res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename=report-${id}.xlsx`,
-      'Content-Length': excelBuffer.length,
-    });
+  //   // Використовуємо латинські символи для безпеки заголовка
+  //   const fileName = `${report.user.name}_${report.academicYear}_report.xlsx`;
+  //   const encodedFileName = Buffer.from(fileName).toString('latin1');
     
-    res.end(excelBuffer);
-  }
+  //   res.set({
+  //     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  //     'Content-Disposition': `attachment; filename="${encodedFileName}"`,
+  //     'Content-Length': excelBuffer.length,
+  //   });
+    
+  //   res.end(excelBuffer);
+  // }
 
   @Delete(':id')
   async deleteReport(

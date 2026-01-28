@@ -2,7 +2,9 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateDisciplineDto } from './dto/update-discipline.dto';
 import * as ExcelJS from 'exceljs';
-import PDFDocument from 'pdfkit';
+import * as path from 'path';
+import * as fs from 'fs';
+import { DisciplineData, ReportData, generatePdfReport } from '../utils/pdf-generator';
 
 @Injectable()
 export class ReportService {
@@ -66,39 +68,32 @@ export class ReportService {
     });
   }
 
-  async updateDiscipline(id: string, data: UpdateDisciplineDto, userId: string) {
-    console.log('Updating discipline', id, 'with data:', data);
+  async updateDiscipline(id: string, data: any, userId: string) {
     const discipline = await this.prisma.discipline.findUnique({
       where: { id },
       include: { report: true },
     });
-
-    if (!discipline) {
-      console.log('Discipline not found for id:', id);
-      throw new NotFoundException('Дисципліну не знайдено');
-    }
-
-    if (discipline.report.userId !== userId) {
-      console.log('User', userId, 'is not authorized to update discipline', id);
-      throw new ForbiddenException('У вас немає доступу до цієї дисципліни');
-    }
-
+  
+    if (!discipline) throw new NotFoundException('Дисципліну не знайдено');
+    if (discipline.report.userId !== userId) throw new ForbiddenException('...');
+  
     const totalHours = 
-      (data.lectures ?? discipline.lectures) +
-      (data.practicals ?? discipline.practicals) +
-      (data.labs ?? discipline.labs) +
-      (data.consultations ?? discipline.consultations) +
-      (data.exams ?? discipline.exams) +
-      (data.credits ?? discipline.credits);
-
-    console.log('Updating discipline', id, 'with totalHours:', totalHours);
-
+      (data.lecturesFullTime ?? discipline.lecturesFullTime) +
+      (data.lecturesPartTime ?? discipline.lecturesPartTime) +
+      (data.practicalsFullTime ?? discipline.practicalsFullTime) +
+      (data.practicalsPartTime ?? discipline.practicalsPartTime) +
+      (data.labsFullTime ?? discipline.labsFullTime) +
+      (data.labsPartTime ?? discipline.labsPartTime) +
+      (data.consultationsFullTime ?? discipline.consultationsFullTime) +
+      (data.consultationsPartTime ?? discipline.consultationsPartTime) +
+      (data.examsFullTime ?? discipline.examsFullTime) +
+      (data.examsPartTime ?? discipline.examsPartTime) +
+      (data.creditsFullTime ?? discipline.creditsFullTime) +
+      (data.creditsPartTime ?? discipline.creditsPartTime);
+  
     return this.prisma.discipline.update({
       where: { id },
-      data: {
-        ...data,
-        totalHours,
-      },
+      data: { ...data, totalHours },
     });
   }
 
@@ -121,16 +116,16 @@ export class ReportService {
     });
   }
 
-  async addDiscipline(reportId: string, data: UpdateDisciplineDto, userId: string) {
+  async addDiscipline(reportId: string, data: any, userId: string) {
     await this.getReport(reportId, userId);
 
     const totalHours = 
-      (data.lectures || 0) +
-      (data.practicals || 0) +
-      (data.labs || 0) +
-      (data.consultations || 0) +
-      (data.exams || 0) +
-      (data.credits || 0);
+      (data.lecturesFullTime || 0) + (data.lecturesPartTime || 0) +
+      (data.practicalsFullTime || 0) + (data.practicalsPartTime || 0) +
+      (data.labsFullTime || 0) + (data.labsPartTime || 0) +
+      (data.consultationsFullTime || 0) + (data.consultationsPartTime || 0) +
+      (data.examsFullTime || 0) + (data.examsPartTime || 0) +
+      (data.creditsFullTime || 0) + (data.creditsPartTime || 0);
 
     return this.prisma.discipline.create({
       data: {
@@ -140,16 +135,19 @@ export class ReportService {
         specialty: data.specialty || '',
         course: data.course || 1,
         semester: data.semester || 1,
-        studentsCount: data.studentsCount || 0,
-        lectures: data.lectures || 0,
-        practicals: data.practicals || 0,
-        labs: data.labs || 0,
-        consultations: data.consultations || 0,
-        exams: data.exams || 0,
-        credits: data.credits || 0,
-        controlWorks: data.controlWorks || 0,
-        courseWorks: data.courseWorks || 0,
-        thesisWorks: data.thesisWorks || 0,
+        students: data.students || 0,
+        lecturesFullTime: data.lecturesFullTime || 0,
+        lecturesPartTime: data.lecturesPartTime || 0,
+        practicalsFullTime: data.practicalsFullTime || 0,
+        practicalsPartTime: data.practicalsPartTime || 0,
+        labsFullTime: data.labsFullTime || 0,
+        labsPartTime: data.labsPartTime || 0,
+        consultationsFullTime: data.consultationsFullTime || 0,
+        consultationsPartTime: data.consultationsPartTime || 0,
+        examsFullTime: data.examsFullTime || 0,
+        examsPartTime: data.examsPartTime || 0,
+        creditsFullTime: data.creditsFullTime || 0,
+        creditsPartTime: data.creditsPartTime || 0,
         totalHours,
       },
     });
@@ -216,88 +214,329 @@ export class ReportService {
 
   async exportToPdf(id: string, userId: string): Promise<Buffer> {
     const report = await this.getReport(id, userId);
-    const disciplines = await this.getDisciplines(id, userId);
 
-    return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 50 });
-      const chunks: Buffer[] = [];
-
-      doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-
-      doc.fontSize(16).text('ПЛАН педагогічного навантаження', { align: 'center' });
-      doc.fontSize(12).text(`Викладача: ${report.user.name}`, { align: 'center' });
-      doc.fontSize(10).text(`Навчальний рік: ${report.academicYear}`, { align: 'center' });
-      doc.moveDown(2);
-
-      disciplines.forEach((disc, index) => {
-        doc.fontSize(10);
-        doc.text(`${index + 1}. ${disc.name}`);
-        doc.fontSize(8);
-        doc.text(`   Спеціальність: ${disc.specialty}, Курс: ${disc.course}`);
-        doc.text(`   Студентів: ${disc.studentsCount}`);
-        doc.text(`   Години: Лекції-${disc.lectures}, Практ-${disc.practicals}, Лаб-${disc.labs}`);
-        doc.text(`   Всього: ${disc.totalHours} год.`);
-        doc.moveDown(0.5);
-      });
-
-      const totalHours = disciplines.reduce((sum, d) => sum + d.totalHours, 0);
-      doc.moveDown(1);
-      doc.fontSize(12).text(`Загальна кількість годин: ${totalHours}`, { align: 'right' });
-
-      doc.end();
+    const mapDiscipline = (d: any): DisciplineData => ({
+      name: d.name,
+      faculty: d.faculty,
+      specialty: d.specialty,
+      course: d.course,
+      semester: d.semester,
+      students: d.students,
+      lecturesFullTime: d.lecturesFullTime,
+      lecturesPartTime: d.lecturesPartTime,
+      practicalsFullTime: d.practicalsFullTime,
+      practicalsPartTime: d.practicalsPartTime,
+      labsFullTime: d.labsFullTime,
+      labsPartTime: d.labsPartTime,
+      consultationsFullTime: d.consultationsFullTime,
+      consultationsPartTime: d.consultationsPartTime,
+      examsFullTime: d.examsFullTime,
+      examsPartTime: d.examsPartTime,
+      creditsFullTime: d.creditsFullTime,
+      creditsPartTime: d.creditsPartTime,
+      controlWorks: d.controlWorks,
+      courseWorks: d.courseWorks,
+      thesisWorks: d.thesisWorks,
+      pedPractice: d.pedPractice || 0,
+      educationalPractice: d.educationalPractice || 0,
+      productionPractice: d.productionPractice || 0,
+      stateExams: d.stateExams || 0,
+      postgraduateStudies: d.postgraduateStudies || 0,
+      other: d.other || 0,
+      totalHours: d.totalHours,
     });
+
+    const meta = (report.parsedData as any)?.metadata || {};
+  
+    const data: ReportData = {
+      userName: report.user.name,
+      userPosition: report.user.position || '',
+      userDepartment: report.user.department || '',
+      academicYear: report.academicYear,
+      departmentHead: meta.departmentHead || '________________',
+      dean: meta.dean || '________________',
+      semester1Disciplines: report.disciplines
+        .filter(d => d.semester === 1)
+        .map(mapDiscipline),
+      semester2Disciplines: report.disciplines
+        .filter(d => d.semester === 2)
+        .map(mapDiscipline),
+    };
+  
+    return generatePdfReport(data);
   }
 
-  async exportToExcel(id: string, userId: string): Promise<Buffer> {
-    const report = await this.getReport(id, userId);
-    const disciplines = await this.getDisciplines(id, userId);
+  // async exportToExcel(id: string, userId: string): Promise<Buffer> {
+  //   const report = await this.getReport(id, userId);
+  //   const disciplines = await this.getDisciplines(id, userId);
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Звіт');
+  //   const workbook = new ExcelJS.Workbook();
+  //   const worksheet = workbook.addWorksheet('Звіт');
 
-    worksheet.columns = [
-      { header: '№', key: 'num', width: 5 },
-      { header: 'Дисципліна', key: 'name', width: 30 },
-      { header: 'Спеціальність', key: 'specialty', width: 15 },
-      { header: 'Курс', key: 'course', width: 8 },
-      { header: 'Студентів', key: 'students', width: 10 },
-      { header: 'Лекції', key: 'lectures', width: 10 },
-      { header: 'Практичні', key: 'practicals', width: 10 },
-      { header: 'Лабораторні', key: 'labs', width: 12 },
-      { header: 'Консультації', key: 'consultations', width: 12 },
-      { header: 'Іспити', key: 'exams', width: 10 },
-      { header: 'Заліки', key: 'credits', width: 10 },
-      { header: 'Всього годин', key: 'total', width: 12 },
-    ];
+  //   // Заголовок
+  //   worksheet.mergeCells('A1:N1');
+  //   worksheet.getCell('A1').value = `ПЛАН педагогічного навантаження на ${report.academicYear} н.р.`;
+  //   worksheet.getCell('A1').font = { bold: true, size: 14 };
+  //   worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    disciplines.forEach((disc, index) => {
-      worksheet.addRow({
-        num: index + 1,
-        name: disc.name,
-        specialty: disc.specialty,
-        course: disc.course,
-        students: disc.studentsCount,
-        lectures: disc.lectures,
-        practicals: disc.practicals,
-        labs: disc.labs,
-        consultations: disc.consultations,
-        exams: disc.exams,
-        credits: disc.credits,
-        total: disc.totalHours,
-      });
-    });
+  //   worksheet.mergeCells('A2:N2');
+  //   worksheet.getCell('A2').value = `Викладача: ${report.user.name}`;
+  //   worksheet.getCell('A2').font = { size: 12 };
+  //   worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
-    };
+  //   // Пропускаємо рядок
+  //   worksheet.getRow(3).height = 5;
 
-    const arrayBuffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(arrayBuffer);
+  //   // Встановлюємо ширину колонок один раз
+  //   worksheet.columns = [
+  //     { width: 5 },   // №
+  //     { width: 35 },  // Дисципліна
+  //     { width: 15 },  // Спеціальність
+  //     { width: 8 },   // Курс
+  //     { width: 10 },  // Семестр
+  //     { width: 15 },  // Форма навчання
+  //     { width: 12 },  // К-ть студентів
+  //     { width: 10 },  // Лекції
+  //     { width: 12 },  // Практичні
+  //     { width: 13 },  // Лабораторні
+  //     { width: 13 },  // Консультації
+  //     { width: 10 },  // Іспити
+  //     { width: 10 },  // Заліки
+  //     { width: 12 },  // Всього
+  //   ];
+
+  //   // Заголовки таблиці
+  //   const headerRow = worksheet.getRow(4);
+  //   const headers = [
+  //     '№',
+  //     'Дисципліна',
+  //     'Спеціальність',
+  //     'Курс',
+  //     'Семестр',
+  //     'Форма навчання',
+  //     'К-ть студентів',
+  //     'Лекції',
+  //     'Практичні',
+  //     'Лабораторні',
+  //     'Консультації',
+  //     'Іспити',
+  //     'Заліки',
+  //     'Всього год.'
+  //   ];
+
+  //   headers.forEach((header, index) => {
+  //     const cell = headerRow.getCell(index + 1);
+  //     cell.value = header;
+  //     cell.font = { bold: true, size: 11 };
+  //     cell.fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFD3D3D3' },
+  //     };
+  //     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  //     cell.border = {
+  //       top: { style: 'thin' },
+  //       left: { style: 'thin' },
+  //       bottom: { style: 'thin' },
+  //       right: { style: 'thin' },
+  //     };
+  //   });
+
+  //   // Групуємо дисципліни по семестрах та формам навчання
+  //   const semester1Disciplines = disciplines.filter(d => d.semester === 1);
+  //   const semester2Disciplines = disciplines.filter(d => d.semester === 2);
+
+  //   let rowIndex = 5;
+  //   let disciplineNumber = 1;
+
+  //   // Семестр 1
+  //   if (semester1Disciplines.length > 0) {
+  //     // Заголовок семестру
+  //     worksheet.mergeCells(`A${rowIndex}:N${rowIndex}`);
+  //     const semesterRow = worksheet.getRow(rowIndex);
+  //     semesterRow.getCell(1).value = 'І СЕМЕСТР';
+  //     semesterRow.getCell(1).font = { bold: true, size: 11, italic: true };
+  //     semesterRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  //     semesterRow.getCell(1).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFE8E8E8' },
+  //     };
+  //     rowIndex++;
+
+  //     // Дані дисциплінів семестру 1
+  //     for (const disc of semester1Disciplines) {
+  //       const row = worksheet.getRow(rowIndex);
+        
+  //       row.getCell(1).value = disciplineNumber++;
+  //       row.getCell(2).value = disc.name;
+  //       row.getCell(3).value = disc.specialty;
+  //       row.getCell(4).value = disc.course;
+  //       row.getCell(5).value = disc.faculty;
+  //       row.getCell(5).value = '1';
+  //       row.getCell(6).value = disc.studyForm === 'FULL_TIME' ? 'Денна' : 'Заочна';
+  //       row.getCell(7).value = disc.studentsCount;
+  //       row.getCell(8).value = disc.lectures;
+  //       row.getCell(9).value = disc.practicals;
+  //       row.getCell(10).value = disc.labs;
+  //       row.getCell(11).value = disc.consultations;
+  //       row.getCell(12).value = disc.exams;
+  //       row.getCell(13).value = disc.credits;
+  //       row.getCell(14).value = disc.totalHours;
+
+  //       this.formatDataRow(row);
+  //       rowIndex++;
+  //     }
+
+  //     // Підсумок семестру 1
+  //     const total1 = semester1Disciplines.reduce((sum, d) => sum + d.totalHours, 0);
+  //     worksheet.mergeCells(`A${rowIndex}:M${rowIndex}`);
+  //     const totalRow1 = worksheet.getRow(rowIndex);
+  //     totalRow1.getCell(1).value = 'Всього за І семестр:';
+  //     totalRow1.getCell(1).font = { bold: true, size: 11 };
+  //     totalRow1.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+  //     totalRow1.getCell(1).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFFFEB99' },
+  //     };
+  //     totalRow1.getCell(14).value = total1;
+  //     totalRow1.getCell(14).font = { bold: true, size: 11 };
+  //     totalRow1.getCell(14).alignment = { horizontal: 'center', vertical: 'middle' };
+  //     totalRow1.getCell(14).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFFFEB99' },
+  //     };
+  //     for (let i = 1; i <= 14; i++) {
+  //       totalRow1.getCell(i).border = {
+  //         top: { style: 'double' },
+  //         left: { style: 'thin' },
+  //         bottom: { style: 'double' },
+  //         right: { style: 'thin' },
+  //       };
+  //     }
+  //     rowIndex += 2;
+  //   }
+
+  //   // Семестр 2
+  //   if (semester2Disciplines.length > 0) {
+  //     // Заголовок семестру
+  //     worksheet.mergeCells(`A${rowIndex}:N${rowIndex}`);
+  //     const semesterRow = worksheet.getRow(rowIndex);
+  //     semesterRow.getCell(1).value = 'ІІ СЕМЕСТР';
+  //     semesterRow.getCell(1).font = { bold: true, size: 11, italic: true };
+  //     semesterRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  //     semesterRow.getCell(1).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFE8E8E8' },
+  //     };
+  //     rowIndex++;
+
+  //     // Дані дисциплінів семестру 2
+  //     for (const disc of semester2Disciplines) {
+  //       const row = worksheet.getRow(rowIndex);
+        
+  //       row.getCell(1).value = disciplineNumber++;
+  //       row.getCell(2).value = disc.name;
+  //       row.getCell(3).value = disc.specialty;
+  //       row.getCell(4).value = disc.course;
+  //       row.getCell(5).value = '2';
+  //       row.getCell(6).value = disc.studyForm === 'FULL_TIME' ? 'Денна' : 'Заочна';
+  //       row.getCell(7).value = disc.studentsCount;
+  //       row.getCell(8).value = disc.lectures;
+  //       row.getCell(9).value = disc.practicals;
+  //       row.getCell(10).value = disc.labs;
+  //       row.getCell(11).value = disc.consultations;
+  //       row.getCell(12).value = disc.exams;
+  //       row.getCell(13).value = disc.credits;
+  //       row.getCell(14).value = disc.totalHours;
+
+  //       this.formatDataRow(row);
+  //       rowIndex++;
+  //     }
+
+  //     // Підсумок семестру 2
+  //     const total2 = semester2Disciplines.reduce((sum, d) => sum + d.totalHours, 0);
+  //     worksheet.mergeCells(`A${rowIndex}:M${rowIndex}`);
+  //     const totalRow2 = worksheet.getRow(rowIndex);
+  //     totalRow2.getCell(1).value = 'Всього за ІІ семестр:';
+  //     totalRow2.getCell(1).font = { bold: true, size: 11 };
+  //     totalRow2.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+  //     totalRow2.getCell(1).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFFFEB99' },
+  //     };
+  //     totalRow2.getCell(14).value = total2;
+  //     totalRow2.getCell(14).font = { bold: true, size: 11 };
+  //     totalRow2.getCell(14).alignment = { horizontal: 'center', vertical: 'middle' };
+  //     totalRow2.getCell(14).fill = {
+  //       type: 'pattern',
+  //       pattern: 'solid',
+  //       fgColor: { argb: 'FFFFEB99' },
+  //     };
+  //     for (let i = 1; i <= 14; i++) {
+  //       totalRow2.getCell(i).border = {
+  //         top: { style: 'double' },
+  //         left: { style: 'thin' },
+  //         bottom: { style: 'double' },
+  //         right: { style: 'thin' },
+  //       };
+  //     }
+  //     rowIndex += 2;
+  //   }
+
+  //   // Загальний підсумок
+  //   worksheet.mergeCells(`A${rowIndex}:M${rowIndex}`);
+  //   const grandTotalRow = worksheet.getRow(rowIndex);
+  //   grandTotalRow.getCell(1).value = 'РАЗОМ за рік:';
+  //   grandTotalRow.getCell(1).font = { bold: true, size: 12 };
+  //   grandTotalRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+  //   grandTotalRow.getCell(1).fill = {
+  //     type: 'pattern',
+  //     pattern: 'solid',
+  //     fgColor: { argb: 'FFC6EFCE' },
+  //   };
+    
+  //   const totalHours = disciplines.reduce((sum, d) => sum + d.totalHours, 0);
+  //   grandTotalRow.getCell(14).value = totalHours;
+  //   grandTotalRow.getCell(14).font = { bold: true, size: 12 };
+  //   grandTotalRow.getCell(14).alignment = { horizontal: 'center', vertical: 'middle' };
+  //   grandTotalRow.getCell(14).fill = {
+  //     type: 'pattern',
+  //     pattern: 'solid',
+  //     fgColor: { argb: 'FFC6EFCE' },
+  //   };
+    
+  //   for (let i = 1; i <= 14; i++) {
+  //     grandTotalRow.getCell(i).border = {
+  //       top: { style: 'double' },
+  //       left: { style: 'thin' },
+  //       bottom: { style: 'double' },
+  //       right: { style: 'thin' },
+  //     };
+  //   }
+
+  //   const arrayBuffer = await workbook.xlsx.writeBuffer();
+  //   return Buffer.from(arrayBuffer);
+  // }
+
+  private formatDataRow(row: any) {
+    for (let i = 1; i <= 14; i++) {
+      const cell = row.getCell(i);
+      cell.alignment = { 
+        horizontal: i === 2 ? 'left' : 'center', 
+        vertical: 'middle' 
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    }
   }
 
   async deleteReport(id: string, userId: string) {

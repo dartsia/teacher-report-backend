@@ -1,8 +1,11 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Express } from 'express';
 import * as fs from 'fs/promises';
 import * as mammoth from 'mammoth';
+import axios from 'axios';
+import * as fsAll from 'fs';
+import FormData from 'form-data';
 const PDFParser = require('pdf2json');
 
 @Injectable()
@@ -12,13 +15,16 @@ export class DocumentService {
   async processDocument(
     file: Express.Multer.File,
     userId: string,
-    academicYear: string,) {
+    academicYear: string,
+    originalFileName: string,
+  ) {
     const report = await this.prisma.report.create({
       data: {
         userId,
         academicYear,
-        originalFileName: file.originalname,
-        filePath: file.path, status: 'DRAFT',
+        originalFileName,
+        filePath: file.path,
+        status: 'DRAFT',
       },
     });
 
@@ -38,7 +44,7 @@ export class DocumentService {
       });
       return {
         reportId: report.id,
-        fileName: file.originalname,
+        fileName: originalFileName,
         status: 'uploaded',
       };
     } catch (error) {
@@ -48,40 +54,59 @@ export class DocumentService {
 
   async parseDocument(reportId: string) {
     const report = await this.prisma.report.findUnique({
-      where: { id: reportId }
-    });
-
-    if (!report)
-      throw new BadRequestException('Звіт не знайдено');
-
-    const rawText = (report.rawData as any)?.text;
-
-    if (!rawText)
-      throw new BadRequestException('Немає тексту для парсингу');
-
-    const parsedData = this.parseFullTable(rawText);
-
-    if (!parsedData || parsedData.length === 0) {
-      throw new BadRequestException('Не вдалося розпарсити документ.');
-    }
-
-    await this.prisma.report.update({
       where: { id: reportId },
-      data: {
-        parsedData: { disciplines: parsedData },
-        status: 'PARSED',
-      },
     });
 
-    for (const d of parsedData) {
-      await this.prisma.discipline.create({ data: { reportId, ...d }, });
+    if (!report || !report.filePath) {
+      throw new BadRequestException('Файл звіту не знайдено на сервері');
     }
 
-    return {
-      reportId,
-      count: parsedData.length,
-      status: 'parsed',
-    };
+    try {
+      const formData = new FormData();
+      formData.append('file', fsAll.createReadStream(report.filePath));
+
+      const response = await axios.post(`${process.env.PYTHON_MICROSERVICE}/parse`, formData, {
+        headers: formData.getHeaders(),
+      });
+
+      const { metadata, disciplines } = response.data;
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.discipline.deleteMany({ where: { reportId } });
+
+        if (disciplines.length > 0) {
+          await await tx.discipline.createMany({
+            data: disciplines.map((d) => ({
+              ...d,
+              reportId: reportId,
+              totalHours: d.lecturesFullTime + d.lecturesPartTime + 
+                          d.practicalsFullTime + d.practicalsPartTime +
+                          d.labsFullTime + d.labsPartTime + 
+                          d.consultationsFullTime + d.consultationsPartTime +
+                          d.examsFullTime + d.examsPartTime + 
+                          d.creditsFullTime + d.creditsPartTime
+            })),
+          });
+        }
+
+        await tx.report.update({
+          where: { id: reportId },
+          data: {
+            status: 'PARSED',
+            parsedData: { metadata },
+          },
+        });
+      });
+
+      return {
+        success: true,
+        count: disciplines.length,
+        metadata,
+      };
+    } catch (error) {
+      console.error('Parsing error:', error.response?.data || error.message);
+      throw new BadRequestException('Помилка парсингу: Python сервіс повернув помилку');
+    }
   }
 
   private async extractTextFromPdf(filePath: string): Promise<string> {

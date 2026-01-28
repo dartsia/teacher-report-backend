@@ -57,41 +57,42 @@ model Report {
 }
 
 model Discipline {
-  id        String @id @default(uuid())
-  reportId  String
-  report    Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid())
+  reportId      String
+  report        Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
   
-  name      String
-  faculty   String
-  specialty String
-  course    Int
-  semester  Int
-  studyForm StudyForm @default(FULL_TIME) // Форма навчання
+  name          String
+  faculty       String
+  specialty     String
+  course        Int
+  semester      Int
+  students      Int    @default(0)
   
-  studentsCount Int @default(0)
-  
-  // Hours breakdown
-  lectures      Int @default(0)
-  practicals    Int @default(0)
-  labs          Int @default(0)
-  consultations Int @default(0)
-  exams         Int @default(0)
-  credits       Int @default(0)
-  
-  // Additional work
-  controlWorks  Int @default(0)
-  courseWorks   Int @default(0)
-  thesisWorks   Int @default(0)
+  lecturesFullTime      Int @default(0)
+  lecturesPartTime      Int @default(0)
+  practicalsFullTime    Int @default(0)
+  practicalsPartTime    Int @default(0)
+  labsFullTime          Int @default(0)
+  labsPartTime          Int @default(0)
+  consultationsFullTime Int @default(0)
+  consultationsPartTime Int @default(0)
+  examsFullTime         Int @default(0)
+  examsPartTime         Int @default(0)
+  creditsFullTime       Int @default(0)
+  creditsPartTime       Int @default(0)
+   
+  controlWorks          Int @default(0)
+  courseWorks           Int @default(0)
+  thesisWorks           Int @default(0)
+  pedPractice           Int      @default(0)
+  educationalPractice   Int      @default(0)
+  productionPractice    Int      @default(0)
+  stateExams            Int      @default(0) // ДЕК
+  postgraduateStudies   Int      @default(0) // Заняття з асп.
+  other                 Int      @default(0)
   
   totalHours    Int @default(0)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum StudyForm {
-  FULL_TIME  // Денна
-  PART_TIME  // Заочна
+  createdAt     DateTime @default(now())
 }
 
 enum UserRole {
