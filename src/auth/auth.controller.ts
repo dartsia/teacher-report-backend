@@ -120,20 +120,23 @@ export class AuthController {
     refreshToken: string,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
-
-    res.cookie('access_token', accessToken, {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    
+    const cookieOptions = {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 min
+      sameSite: isProduction ? ('none' as const) : ('lax' as const),
+      path: '/',
+    };
+
+    res.cookie('access_token', accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 d
-      path: '/auth/refresh',
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
 }

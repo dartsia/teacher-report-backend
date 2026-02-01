@@ -10,8 +10,10 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: ['http://localhost:3000', 'https://teacher-report-frontend.vercel.app', process.env.PYTHON_MICROSERVICE || 'https://python-parsing-microservice.onrender.com'],
+    origin: [process.env.FRONTEND_URL || 'http://localhost:3000', process.env.PYTHON_MICROSERVICE || 'http://localhost:8000'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(
@@ -34,7 +36,7 @@ async function bootstrap() {
     .addTag('reports')
     .addBearerAuth()
     .build();
-
+  
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
