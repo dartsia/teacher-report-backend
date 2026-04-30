@@ -51,8 +51,8 @@ export class DocumentController {
         },
       }),
       fileFilter: (req, file, cb) => {
-        if (!file.originalname.match(/\.(pdf|doc|docx)$/i)) {
-          return cb(new BadRequestException('Тільки PDF або Word файли!'), false);
+        if (!file.originalname.match(/\.(pdf|doc|docx|xls|xlsx)$/i)) {
+          return cb(new BadRequestException('Тільки PDF, Word або Excel файли!'), false);
         }
         cb(null, true);
       },

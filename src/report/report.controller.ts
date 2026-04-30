@@ -109,27 +109,26 @@ export class ReportController {
     res.end(pdfBuffer);
   }
 
-  // @Get(':id/export/excel')
-  // async exportToExcel(
-  //   @Param('id') id: string,
-  //   @CurrentUser('id') userId: string,
-  //   @Res() res: Response,
-  // ) {
-  //   const report = await this.reportService.getReport(id, userId);
-  //   const excelBuffer = await this.reportService.exportToExcel(id, userId);
+  @Get(':id/export/excel')
+  async exportToExcel(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Res() res: Response,
+  ) {
+    const report = await this.reportService.getReport(id, userId);
+    const excelBuffer = await this.reportService.exportToExcel(id, userId);
+
+    const fileName = `${report.user.name}_${report.academicYear}_report.xlsx`;
+    const encodedFileName = Buffer.from(fileName).toString('latin1');
     
-  //   // Використовуємо латинські символи для безпеки заголовка
-  //   const fileName = `${report.user.name}_${report.academicYear}_report.xlsx`;
-  //   const encodedFileName = Buffer.from(fileName).toString('latin1');
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${encodedFileName}"`,
+      'Content-Length': excelBuffer.length,
+    });
     
-  //   res.set({
-  //     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  //     'Content-Disposition': `attachment; filename="${encodedFileName}"`,
-  //     'Content-Length': excelBuffer.length,
-  //   });
-    
-  //   res.end(excelBuffer);
-  // }
+    res.end(excelBuffer);
+  }
 
   @Delete(':id')
   async deleteReport(

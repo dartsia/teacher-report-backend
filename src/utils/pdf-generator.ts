@@ -2,33 +2,28 @@ import puppeteer from 'puppeteer';
 
 export interface DisciplineData {
   name: string;
-  specialty: string;
-  course: number;
-  faculty: string;
-  semester: number;
-  students: number;
-  lecturesFullTime: number;
-  lecturesPartTime: number;
-  practicalsFullTime: number;
-  practicalsPartTime: number;
-  labsFullTime: number;
-  labsPartTime: number;
-  consultationsFullTime: number;
-  consultationsPartTime: number;
-  examsFullTime: number;
-  examsPartTime: number;
-  creditsFullTime: number;
-  creditsPartTime: number;
-  controlWorks: number;
-  courseWorks: number;
-  thesisWorks: number;
-  pedPractice: number;
-  educationalPractice: number;
-  productionPractice: number;
-  stateExams: number;
-  postgraduateStudies: number;
+  specialty?: string;
+  course?: number;
+  students?: number;
+  lecturesD: number;
+  lecturesZ: number;
+  practD: number;
+  practZ: number;
+  labsD: number;
+  labsZ: number;
+  consD: number;
+  consZ: number;
+  examD: number;
+  examZ: number;
+  creditD: number;
+  creditZ: number;
+  control: number;
+  courseWork: number;
+  thesis: number;
+  practice: number;
+  postgrad: number;
   other: number;
-  totalHours: number;
+  total: number;
 }
 
 export interface ReportData {
@@ -66,89 +61,59 @@ export async function generatePdfReport(data: ReportData): Promise<Buffer> {
 }
 
 function generateHtml(data: ReportData): string {
-  const renderTable = (disciplines: DisciplineData[], title: string) => {
+  function renderTable(disciplines: any[], title: string) {
     if (disciplines.length === 0) return '';
 
-    const sums = {
-      students: disciplines.reduce((a, b) => a + b.students, 0),
-      lecturesFull: disciplines.reduce((a, b) => a + b.lecturesFullTime, 0),
-      lecturesPart: disciplines.reduce((a, b) => a + b.lecturesPartTime, 0),
-      total: disciplines.reduce((a, b) => a + b.totalHours, 0),
-    };
+    const rows = disciplines.map(d => `
+    <tr>
+      <td style="text-align:left">${d.name}</td>
+      <td>${d.specialty}-${d.course}</td>
+      <td>${d.students}</td>
+      <td>${d.lecturesD}</td><td>${d.lecturesZ}</td>
+      <td>${d.practD}</td><td>${d.practZ}</td>
+      <td>${d.labsD}</td><td>${d.labsZ}</td>
+      <td>${d.consD}</td><td>${d.consZ}</td>
+      <td>${d.examD}</td><td>${d.examZ}</td>
+      <td>${d.creditD}</td><td>${d.creditZ}</td>
+      <td>${d.control}</td>
+      <td>${d.courseWork}</td>
+      <td>${d.practice}</td>
+      <td>${d.postgrad}</td>
+      <td>${d.other}</td>
+      <td class="total-cell">${d.total}</td>
+    </tr>
+  `).join('');
 
     return `
-      <div class="semester-section">
-        <div class="semester-header">${title}</div>
-        <table>
-          <thead>
-            <tr>
-              <th rowspan="2" style="width: 15%;">Дисципліни</th>
-              <th rowspan="2" class="v-text"><div>Факультет</div></th>
-              <th rowspan="2" class="v-text"><div>Спеціальність, курс</div></th>
-              <th rowspan="2" class="v-text"><div>К-ть студентів</div></th>
-              <th colspan="2">Лекції</th>
-              <th colspan="2">Практ.</th>
-              <th colspan="2">Лабор.</th>
-              <th colspan="2">Конс.</th>
-              <th colspan="2">Іспити</th>
-              <th colspan="2">Заліки</th>
-              <th rowspan="2" class="v-text"><div>Контр. роботи</div></th>
-              <th rowspan="2" class="v-text"><div>Курсові роботи</div></th>
-              <th rowspan="2" class="v-text"><div>Дипл. роботи</div></th>
-              <th rowspan="2" class="v-text"><div>Педпрактика</div></th>
-              <th rowspan="2" class="v-text"><div>Навчальна практика</div></th>
-              <th rowspan="2" class="v-text"><div>Виробн. практика</div></th>
-              <th rowspan="2" class="v-text"><div>ДЕК</div></th>
-              <th rowspan="2" class="v-text"><div>Заняття з асп.</div></th>
-              <th rowspan="2" class="v-text"><div>Різне</div></th>
-              <th rowspan="2" class="v-text"><div>Разом</div></th>
-            </tr>
-            <tr>
-              <th class="mini">д</th><th class="mini">з</th>
-              <th class="mini">д</th><th class="mini">з</th>
-              <th class="mini">д</th><th class="mini">з</th>
-              <th class="mini">д</th><th class="mini">з</th>
-              <th class="mini">д</th><th class="mini">з</th>
-              <th class="mini">д</th><th class="mini">з</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${disciplines.map(d => `
-              <tr>
-                <td class="left-align">${d.name}</td>
-                <td>${d.faculty}</td>
-                <td>${d.specialty}-${d.course}</td>
-                <td>${d.students || ''}</td>
-                <td>${d.lecturesFullTime || ''}</td><td>${d.lecturesPartTime || ''}</td>
-                <td>${d.practicalsFullTime || ''}</td><td>${d.practicalsPartTime || ''}</td>
-                <td>${d.labsFullTime || ''}</td><td>${d.labsPartTime || ''}</td>
-                <td>${d.consultationsFullTime || ''}</td><td>${d.consultationsPartTime || ''}</td>
-                <td>${d.examsFullTime || ''}</td><td>${d.examsPartTime || ''}</td>
-                <td>${d.creditsFullTime || ''}</td><td>${d.creditsPartTime || ''}</td>
-                <td>${d.controlWorks || ''}</td>
-                <td>${d.courseWorks || ''}</td>
-                <td>${d.thesisWorks || ''}</td>
-                <td>${d.pedPractice || ''}</td>
-                <td>${d.educationalPractice || ''}</td>
-                <td>${d.productionPractice || ''}</td>
-                <td>${d.stateExams || ''}</td>
-                <td>${d.postgraduateStudies || ''}</td>
-                <td>${d.other || ''}</td>
-                <td class="bold">${d.totalHours}</td>
-              </tr>
-            `).join('')}
-            <tr class="sum-row">
-              <td colspan="3" class="right-align">Всього за ${title.toLowerCase()}:</td>
-              <td>${sums.students}</td>
-              <td>${sums.lecturesFull}</td><td>${sums.lecturesPart}</td>
-              <td colspan="18"></td>
-              <td class="bold">${sums.total}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-  };
+    <h3>${title}</h3>
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2">Дисципліна</th>
+          <th rowspan="2">Спец, курс</th>
+          <th rowspan="2">Студ.</th>
+          <th colspan="2">Лекції</th>
+          <th colspan="2">Практ.</th>
+          <th colspan="2">Лабор.</th>
+          <th colspan="2">Конс.</th>
+          <th colspan="2">Іспит</th>
+          <th colspan="2">Залік</th>
+          <th rowspan="2">Контр.</th>
+          <th rowspan="2">Курс.</th>
+          <th rowspan="2">Практ.</th>
+          <th rowspan="2">Асп.</th>
+          <th rowspan="2">Інше</th>
+          <th rowspan="2">Разом</th>
+        </tr>
+        <tr>
+          <th>д</th><th>з</th><th>д</th><th>з</th><th>д</th><th>з</th>
+          <th>д</th><th>з</th><th>д</th><th>з</th><th>д</th><th>з</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  }
 
   return `
     <!DOCTYPE html>

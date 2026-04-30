@@ -8,7 +8,7 @@ import { DisciplineData, ReportData, generatePdfReport } from '../utils/pdf-gene
 
 @Injectable()
 export class ReportService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getAllReports(userId: string) {
     return this.prisma.report.findMany({
@@ -73,11 +73,11 @@ export class ReportService {
       where: { id },
       include: { report: true },
     });
-  
+
     if (!discipline) throw new NotFoundException('Дисципліну не знайдено');
     if (discipline.report.userId !== userId) throw new ForbiddenException('...');
-  
-    const totalHours = 
+
+    const totalHours =
       (data.lecturesFullTime ?? discipline.lecturesFullTime) +
       (data.lecturesPartTime ?? discipline.lecturesPartTime) +
       (data.practicalsFullTime ?? discipline.practicalsFullTime) +
@@ -90,7 +90,7 @@ export class ReportService {
       (data.examsPartTime ?? discipline.examsPartTime) +
       (data.creditsFullTime ?? discipline.creditsFullTime) +
       (data.creditsPartTime ?? discipline.creditsPartTime);
-  
+
     return this.prisma.discipline.update({
       where: { id },
       data: { ...data, totalHours },
@@ -119,7 +119,7 @@ export class ReportService {
   async addDiscipline(reportId: string, data: any, userId: string) {
     await this.getReport(reportId, userId);
 
-    const totalHours = 
+    const totalHours =
       (data.lecturesFullTime || 0) + (data.lecturesPartTime || 0) +
       (data.practicalsFullTime || 0) + (data.practicalsPartTime || 0) +
       (data.labsFullTime || 0) + (data.labsPartTime || 0) +
@@ -192,7 +192,7 @@ export class ReportService {
 
   async completeReport(id: string, userId: string) {
     const validation = await this.validateReport(id, userId);
-    
+
     if (!validation.valid) {
       return {
         success: false,
@@ -213,57 +213,91 @@ export class ReportService {
   }
 
   async exportToPdf(id: string, userId: string): Promise<Buffer> {
-    const report = await this.getReport(id, userId);
-
-    const mapDiscipline = (d: any): DisciplineData => ({
-      name: d.name,
-      faculty: d.faculty,
-      specialty: d.specialty,
-      course: d.course,
-      semester: d.semester,
-      students: d.students,
-      lecturesFullTime: d.lecturesFullTime,
-      lecturesPartTime: d.lecturesPartTime,
-      practicalsFullTime: d.practicalsFullTime,
-      practicalsPartTime: d.practicalsPartTime,
-      labsFullTime: d.labsFullTime,
-      labsPartTime: d.labsPartTime,
-      consultationsFullTime: d.consultationsFullTime,
-      consultationsPartTime: d.consultationsPartTime,
-      examsFullTime: d.examsFullTime,
-      examsPartTime: d.examsPartTime,
-      creditsFullTime: d.creditsFullTime,
-      creditsPartTime: d.creditsPartTime,
-      controlWorks: d.controlWorks,
-      courseWorks: d.courseWorks,
-      thesisWorks: d.thesisWorks,
-      pedPractice: d.pedPractice || 0,
-      educationalPractice: d.educationalPractice || 0,
-      productionPractice: d.productionPractice || 0,
-      stateExams: d.stateExams || 0,
-      postgraduateStudies: d.postgraduateStudies || 0,
-      other: d.other || 0,
-      totalHours: d.totalHours,
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      include: { user: true, disciplines: true },
     });
 
+    if (!report) throw new NotFoundException('Report not found');
+
     const meta = (report.parsedData as any)?.metadata || {};
-  
-    const data: ReportData = {
+
+    const mapToTemplate = (d: any) => ({
+      name: d.name,
+      specialty: d.specialty,
+      course: d.course,
+      students: d.students,
+      lecturesD: d.lecturesFullTime || 0,
+      lecturesZ: d.lecturesPartTime || 0,
+      practD: d.practicalsFullTime || 0,
+      practZ: d.practicalsPartTime || 0,
+      labsD: d.labsFullTime || 0,
+      labsZ: d.labsPartTime || 0,
+      consD: d.consultationsFullTime || 0,
+      consZ: d.consultationsPartTime || 0,
+      examD: d.examsFullTime || 0,
+      examZ: d.examsPartTime || 0,
+      creditD: d.creditsFullTime || 0,
+      creditZ: d.creditsPartTime || 0,
+      control: d.controlWorks || 0,
+      courseWork: d.courseWorks || 0,
+      thesis: d.thesisWorks || 0,
+      practice: (d.pedPractice || 0) + (d.educationalPractice || 0) + (d.productionPractice || 0),
+      postgrad: d.postgraduateStudies || 0,
+      other: d.other || 0,
+      total: d.totalHours || 0
+    });
+
+    const data = {
       userName: report.user.name,
-      userPosition: report.user.position || '',
-      userDepartment: report.user.department || '',
+      userPosition: report.user.position || 'асистент',
+      userDepartment: report.user.department || 'системного проектування',
       academicYear: report.academicYear,
-      departmentHead: meta.departmentHead || '________________',
-      dean: meta.dean || '________________',
-      semester1Disciplines: report.disciplines
-        .filter(d => d.semester === 1)
-        .map(mapDiscipline),
-      semester2Disciplines: report.disciplines
-        .filter(d => d.semester === 2)
-        .map(mapDiscipline),
+      departmentHead: meta.departmentHead || 'доц. Р. Я. Шувар',
+      dean: meta.dean || 'доц. Ю.М. Фургала',
+      semester1Disciplines: report.disciplines.filter(d => d.semester === 1).map(mapToTemplate),
+      semester2Disciplines: report.disciplines.filter(d => d.semester === 2).map(mapToTemplate),
+      totalHoursYear: report.disciplines.reduce((sum, d) => sum + (d.totalHours || 0), 0)
     };
-  
+
     return generatePdfReport(data);
+  }
+
+  async exportToExcel(id: string, userId: string): Promise<Buffer> {
+    const report = await this.getReport(id, userId);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Звіт');
+
+    const header1 = ['Дисципліна', 'Спец/Курс', 'Студ.', 'Лекції', '', 'Практ.', '', 'Лабор.', '', 'Разом'];
+    const header2 = ['', '', '', 'ден.', 'заоч.', 'ден.', 'заоч.', 'ден.', 'заоч.', ''];
+
+    worksheet.addRow(header1);
+    worksheet.addRow(header2);
+
+    worksheet.mergeCells('A1:A2');
+    worksheet.mergeCells('B1:B2');
+    worksheet.mergeCells('C1:C2');
+    worksheet.mergeCells('D1:E1');
+    worksheet.mergeCells('F1:G1');
+    worksheet.mergeCells('H1:I1');
+    worksheet.mergeCells('J1:J2');
+
+    report.disciplines.forEach(d => {
+      worksheet.addRow([
+        d.name,
+        `${d.specialty}-${d.course}`,
+        d.students,
+        d.lecturesFullTime, d.lecturesPartTime,
+        d.practicalsFullTime, d.practicalsPartTime,
+        d.labsFullTime, d.labsPartTime,
+        d.totalHours
+      ]);
+    });
+
+    worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(2).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   // async exportToExcel(id: string, userId: string): Promise<Buffer> {
@@ -284,10 +318,8 @@ export class ReportService {
   //   worksheet.getCell('A2').font = { size: 12 };
   //   worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
 
-  //   // Пропускаємо рядок
   //   worksheet.getRow(3).height = 5;
 
-  //   // Встановлюємо ширину колонок один раз
   //   worksheet.columns = [
   //     { width: 5 },   // №
   //     { width: 35 },  // Дисципліна
@@ -305,7 +337,6 @@ export class ReportService {
   //     { width: 12 },  // Всього
   //   ];
 
-  //   // Заголовки таблиці
   //   const headerRow = worksheet.getRow(4);
   //   const headers = [
   //     '№',
@@ -342,7 +373,6 @@ export class ReportService {
   //     };
   //   });
 
-  //   // Групуємо дисципліни по семестрах та формам навчання
   //   const semester1Disciplines = disciplines.filter(d => d.semester === 1);
   //   const semester2Disciplines = disciplines.filter(d => d.semester === 2);
 
@@ -367,7 +397,7 @@ export class ReportService {
   //     // Дані дисциплінів семестру 1
   //     for (const disc of semester1Disciplines) {
   //       const row = worksheet.getRow(rowIndex);
-        
+
   //       row.getCell(1).value = disciplineNumber++;
   //       row.getCell(2).value = disc.name;
   //       row.getCell(3).value = disc.specialty;
@@ -437,7 +467,7 @@ export class ReportService {
   //     // Дані дисциплінів семестру 2
   //     for (const disc of semester2Disciplines) {
   //       const row = worksheet.getRow(rowIndex);
-        
+
   //       row.getCell(1).value = disciplineNumber++;
   //       row.getCell(2).value = disc.name;
   //       row.getCell(3).value = disc.specialty;
@@ -499,7 +529,7 @@ export class ReportService {
   //     pattern: 'solid',
   //     fgColor: { argb: 'FFC6EFCE' },
   //   };
-    
+
   //   const totalHours = disciplines.reduce((sum, d) => sum + d.totalHours, 0);
   //   grandTotalRow.getCell(14).value = totalHours;
   //   grandTotalRow.getCell(14).font = { bold: true, size: 12 };
@@ -509,7 +539,7 @@ export class ReportService {
   //     pattern: 'solid',
   //     fgColor: { argb: 'FFC6EFCE' },
   //   };
-    
+
   //   for (let i = 1; i <= 14; i++) {
   //     grandTotalRow.getCell(i).border = {
   //       top: { style: 'double' },
@@ -526,9 +556,9 @@ export class ReportService {
   private formatDataRow(row: any) {
     for (let i = 1; i <= 14; i++) {
       const cell = row.getCell(i);
-      cell.alignment = { 
-        horizontal: i === 2 ? 'left' : 'center', 
-        vertical: 'middle' 
+      cell.alignment = {
+        horizontal: i === 2 ? 'left' : 'center',
+        vertical: 'middle'
       };
       cell.border = {
         top: { style: 'thin' },
