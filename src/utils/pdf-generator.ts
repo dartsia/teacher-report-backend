@@ -66,30 +66,30 @@ function generateHtml(data: ReportData): string {
 
     const rows = disciplines.map(d => `
     <tr>
-      <td style="text-align:left">${d.name}</td>
+      <td style="text-align: left; padding-left: 5px;">${d.name}</td>
       <td>${d.specialty}-${d.course}</td>
-      <td>${d.students}</td>
-      <td>${d.lecturesD}</td><td>${d.lecturesZ}</td>
-      <td>${d.practD}</td><td>${d.practZ}</td>
-      <td>${d.labsD}</td><td>${d.labsZ}</td>
-      <td>${d.consD}</td><td>${d.consZ}</td>
-      <td>${d.examD}</td><td>${d.examZ}</td>
-      <td>${d.creditD}</td><td>${d.creditZ}</td>
-      <td>${d.control}</td>
-      <td>${d.courseWork}</td>
-      <td>${d.practice}</td>
-      <td>${d.postgrad}</td>
-      <td>${d.other}</td>
-      <td class="total-cell">${d.total}</td>
+      <td>${d.students || ''}</td>
+      <td>${d.lecturesD || ''}</td><td>${d.lecturesZ || ''}</td>
+      <td>${d.practD || ''}</td><td>${d.practZ || ''}</td>
+      <td>${d.labsD || ''}</td><td>${d.labsZ || ''}</td>
+      <td>${d.consD || ''}</td><td>${d.consZ || ''}</td>
+      <td>${d.examD || ''}</td><td>${d.examZ || ''}</td>
+      <td>${d.creditD || ''}</td><td>${d.creditZ || ''}</td>
+      <td>${d.control || ''}</td>
+      <td>${d.courseWork || ''}</td>
+      <td>${d.practice || ''}</td>
+      <td>${d.postgrad || ''}</td>
+      <td>${d.other || ''}</td>
+      <td style="font-weight: bold;">${d.total}</td>
     </tr>
   `).join('');
 
     return `
-    <h3>${title}</h3>
+    <div style="text-align: center; font-weight: bold; margin: 10px 0; background: #eee;">${title}</div>
     <table>
       <thead>
         <tr>
-          <th rowspan="2">Дисципліна</th>
+          <th rowspan="2" style="width: 20%;">Дисципліна</th>
           <th rowspan="2">Спец, курс</th>
           <th rowspan="2">Студ.</th>
           <th colspan="2">Лекції</th>

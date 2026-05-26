@@ -167,12 +167,6 @@ export class ReportService {
       if (!disc.name) {
         errors.push(`Дисципліна ${disc.id} не має назви`);
       }
-      // if (disc.studentsCount <= 0 && ) {
-      //   errors.push(`Дисципліна "${disc.name}" має невірну кількість студентів`);
-      // }
-      // if (disc.totalHours <= 0) {
-      //   errors.push(`Дисципліна "${disc.name}" має 0 годин`);
-      // }
     }
 
     const isValid = errors.length === 0;
@@ -268,30 +262,35 @@ export class ReportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Звіт');
 
-    const header1 = ['Дисципліна', 'Спец/Курс', 'Студ.', 'Лекції', '', 'Практ.', '', 'Лабор.', '', 'Разом'];
-    const header2 = ['', '', '', 'ден.', 'заоч.', 'ден.', 'заоч.', 'ден.', 'заоч.', ''];
+    const row1 = worksheet.addRow(['Дисципліна', 'Спец/Курс', 'Студ.', 'Лекції', '', 'Практ.', '', 'Лабор.', '', 'Конс.', '', 'Іспит', '', 'Залік', '', 'Контр.', 'Курс.', 'Разом']);
+    const row2 = worksheet.addRow(['', '', '', 'д', 'з', 'д', 'з', 'д', 'з', 'д', 'з', 'д', 'з', 'д', 'з', '', '', '']);
 
-    worksheet.addRow(header1);
-    worksheet.addRow(header2);
+    const merges = ['A1:A2', 'B1:B2', 'C1:C2', 'D1:E1', 'F1:G1', 'H1:I1', 'J1:K1', 'L1:M1', 'N1:O1', 'P1:P2', 'Q1:Q2', 'R1:R2'];
+    merges.forEach(m => worksheet.mergeCells(m));
 
-    worksheet.mergeCells('A1:A2');
-    worksheet.mergeCells('B1:B2');
-    worksheet.mergeCells('C1:C2');
-    worksheet.mergeCells('D1:E1');
-    worksheet.mergeCells('F1:G1');
-    worksheet.mergeCells('H1:I1');
-    worksheet.mergeCells('J1:J2');
+    [row1, row2].forEach(row => {
+      row.eachCell(cell => {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.font = { bold: true, size: 10 };
+      });
+    });
 
     report.disciplines.forEach(d => {
-      worksheet.addRow([
-        d.name,
-        `${d.specialty}-${d.course}`,
-        d.students,
+      const row = worksheet.addRow([
+        d.name, `${d.specialty}-${d.course}`, d.students,
         d.lecturesFullTime, d.lecturesPartTime,
         d.practicalsFullTime, d.practicalsPartTime,
         d.labsFullTime, d.labsPartTime,
-        d.totalHours
+        d.consultationsFullTime, d.consultationsPartTime,
+        d.examsFullTime, d.examsPartTime,
+        d.creditsFullTime, d.creditsPartTime,
+        d.controlWorks, d.courseWorks, d.totalHours
       ]);
+      row.eachCell(c => {
+        c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        c.alignment = { horizontal: 'center' };
+      });
     });
 
     worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
