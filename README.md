@@ -1,98 +1,70 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 📘 Teacher Report: Основний сервер (Backend Core)
+> Це головний бекенд-сервіс (оркестратор) системи автоматизації звітності викладачів. Сервіс відповідає за бізнес-логіку, безпеку, управління базою даних та генерацію фінальних звітів. Для виконання ресурсоємного структурного аналізу PDF-документів цей сервер асинхронно взаємодіє з окремим Python-мікросервісом.
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+---
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🧠 Основний функціонал
 
-## Description
+- 🛡️ Безпека: Хешування паролів (bcrypt) та управління JWT-токенами (access/refresh).
+- 🗄️ База даних: Строго типізована взаємодія з PostgreSQL через Prisma ORM.
+- 🔄 Координація: Прийом файлів від клієнта (Multer) та їх передача до мікросервісу розпізнавання.
+- 📄 Генерація документів: Формування підсумкових звітів у форматі PDF (через Puppeteer) та XLSX (через ExcelJS).
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🛠 Стек технологій
 
-```bash
-$ npm install
-```
+- **Фреймворк**: NestJS (v11) / Node.js
+- **Мова**: TypeScript
+- **ORM**: Prisma
+- **База даних**: PostgreSQL
+- **Генерація файлів**: Puppeteer, ExcelJS
 
-## Compile and run the project
+---
+
+## 🚀 Встановлення та локальний запуск
+
+### 1. Клонуйте репозиторій:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+git clone https://github.com/dartsia/teacher-report-backend.git
+cd teacher-report-backend
 ```
 
-## Run tests
+### 2. Встановіть залежності:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
+### 3. ННалаштуйте змінні середовища:
+Створіть файл .env у кореневій папці проєкту:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/teacher-report?schema=public"
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+JWT_SECRET="96b4433721f2b3e6e5754fdb7cc5337aa2b7209c26bd8933a9081046322b62e0"
+JWT_REFRESH_SECRET="2599e3f0cb3901a2245d23422ca0d379f3d9f8d2d03ebde9cfe82c1bdf35d7ab"
+
+PORT=3001
+NODE_ENV=development
+
+PYTHON_MICROSERVICE=http://localhost:8000
+FRONTEND_URL=http://localhost:3000
+```
+
+### 4. Ініціалізація бази даних:
+Запустіть міграції для створення таблиць у PostgreSQL:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx prisma generate
+npx prisma migrate dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 5. Запустіть сервер розробки:
 
-## Resources
+```bash
+npm run start
+```
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Сервер запуститься на `http://localhost:3001`. Swagger-документація доступна за маршрутом `/api`
